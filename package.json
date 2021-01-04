@@ -1,7 +1,6 @@
 {
-  "name": "sine-ts",
+  "name": "@sine-fdn/sine-ts",
   "version": "0.1.0",
-  "private": true,
   "description": "The SINE Typescript SDK for embedding SINE e.V. technology into various domains and services",
   "main": "dist/sine.js",
   "module": "dist/sine.esm.js",
@@ -17,10 +16,17 @@
     "S-MPC",
     "Benchmarking"
   ],
+  "repository": {
+    "type": "git",
+    "url": "ssh://git@github.com/sine-fdn/sine-ts.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  },
   "scripts": {
     "clean": "rm -rf dist",
     "build": "yarn clean && yarn rollup -c",
-    "typecheck": "tsc" 
+    "typecheck": "tsc"
   },
   "devDependencies": {
     "@babel/core": "^7.12.10",
