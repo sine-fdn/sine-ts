@@ -2,6 +2,12 @@
 
 Object.defineProperty(exports, '__esModule', { value: true });
 
+var JIFFClient = require('jiff-mpc/lib/jiff-client.js');
+
+function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
+
+var JIFFClient__default = /*#__PURE__*/_interopDefaultLegacy(JIFFClient);
+
 const ZP = 16777729;
 
 function mkRandomBytes(bytesNeeded) {
@@ -154,12 +160,10 @@ class Benchmarking {
 
   async listSessions(opts) {
     const url = `${this.opts.baseUrl}/api/v1` + (opts.status ? `?status=${opts.status}` : "");
-    return this.fetch(url).then(r => r.json())
-    /*.catch((error) => ({
-    success: false,
-    message: `Failed to parse server response: ${error}`,
-    }))*/
-    .then(res => res.success ? Promise.resolve(res) : Promise.reject(res));
+    return this.fetch(url).then(r => r.json()).catch(error => ({
+      success: false,
+      message: `Failed to parse server response: ${error}`
+    }));
   }
   /**
    * retrieves metadata about a benchmarking session given a {SessionId}
@@ -173,6 +177,33 @@ class Benchmarking {
       success: false,
       message: `Failed to parse server response: ${error}`
     })).then(res => res.success ? Promise.resolve(res) : Promise.reject(res));
+  }
+  /**
+   * listing of all existing datasets
+   */
+
+
+  async listDatasets() {
+    const url = `${this.opts.baseUrl}/api/v1/benchmarking/dataset`;
+    return this.fetch(url).then(r => r.json()).catch(error => ({
+      success: false,
+      message: `Failed to parse server response: ${error}`
+    }));
+  }
+  /**
+   * starts a benchmarking session against a pre-existing dataset
+   * @param data cs
+   */
+
+
+  async newDatasetSession(datasetId, data) {
+    return fetch(`/api/v1/benchmarking/dataset/${datasetId}/new_session`, {
+      method: "POST",
+      body: JSON.stringify(data)
+    }).then(req => req.json()).catch(error => ({
+      success: false,
+      message: `Failed to convert body from API. Error is: ${error}`
+    }));
   }
 
 }
@@ -191,5 +222,113 @@ class SINE {
 
 }
 
+const DEFAULT_JIFF_OPTIONS = {
+  crypto_provider: true,
+  onError: function (_, error) {
+    console.error("ERROR ", error);
+  }
+};
+function connect({
+  computationId,
+  hostname,
+  ...opts
+}) {
+  return new JIFFClient__default['default'](hostname, computationId, { ...DEFAULT_JIFF_OPTIONS,
+    ...opts
+  });
+}
+async function share_dataset_secrets(jiff_instance, secrets, other_node_id) {
+  const all = await jiff_instance.share_array(secrets);
+  console.log("[lib] share datasets: ", all);
+  const datasetSecrets = Object.values(all).reduce((agg, secrets, idx) => idx !== other_node_id ? agg.concat(secrets) : secrets, []);
+  const referenceSecret = typeof all[other_node_id] === "object" && all[other_node_id].length === 1 ? all[other_node_id][0] : null;
+
+  if (!referenceSecret) {
+    throw new Error("other_node_id is missing from shared secrets");
+  }
+
+  return {
+    datasetSecrets,
+    referenceSecret
+  };
+}
+function sort(secrets_in) {
+  function oddEvenSort(a, lo, n) {
+    if (n > 1) {
+      const m = Math.floor(n / 2);
+      oddEvenSort(a, lo, m);
+      oddEvenSort(a, lo + m, m);
+      oddEvenMerge(a, lo, n, 1);
+    }
+  } // lo: lower bound of indices, n: number of elements, r: step
+
+
+  function oddEvenMerge(a, lo, n, r) {
+    const m = r * 2;
+
+    if (m < n) {
+      oddEvenMerge(a, lo, n, m);
+      oddEvenMerge(a, lo + r, n, m);
+
+      for (let i = lo + r; i + r < lo + n; i += m) {
+        compareExchange(a, i, i + r);
+      }
+    } else {
+      compareExchange(a, lo, lo + r);
+    }
+  }
+
+  function compareExchange(a, i, j) {
+    if (j >= a.length || i >= a.length) {
+      return;
+    }
+
+    const x = a[i];
+    const y = a[j];
+    const cmp = x.gt(y);
+    a[i] = cmp.if_else(x, y);
+    a[j] = cmp.if_else(y, x);
+  }
+
+  const secrets = secrets_in.map(s => s.add(0));
+  oddEvenSort(secrets, 0, secrets.length);
+  return secrets;
+}
+function ranking(secrets_sorted, secrets) {
+  const ranks = Array.from({
+    length: secrets.length
+  }, () => 0);
+
+  for (let i = 0; i < secrets_sorted.length; i++) {
+    for (let j = 0; j < secrets.length; j++) {
+      const cmp = secrets_sorted[i].seq(secrets[j]);
+      ranks[j] = cmp.if_else(i + 1, ranks[j]);
+    }
+  }
+
+  return ranks; //TODO
+}
+function ranking_const(my_secret, secrets_sorted) {
+  // construct a "0" w/o resorting to a jiff_client
+  let result = my_secret.sub(my_secret);
+
+  for (let i = 0; i < secrets_sorted.length; ++i) {
+    const cmp = my_secret.sgt(secrets_sorted[i]);
+    result = result.add(cmp);
+  }
+
+  return result;
+}
+
+var index = /*#__PURE__*/Object.freeze({
+  __proto__: null,
+  connect: connect,
+  share_dataset_secrets: share_dataset_secrets,
+  sort: sort,
+  ranking: ranking,
+  ranking_const: ranking_const
+});
+
 exports.Benchmarking = Benchmarking;
 exports.SINE = SINE;
+exports.mpc = index;

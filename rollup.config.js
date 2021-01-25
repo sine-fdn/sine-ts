@@ -24,5 +24,6 @@ export default [
       { file: pkg.module, format: "es" },
     ],
     plugins: PLUGINS,
+    external: ["jiff-mpc/lib/jiff-client.js"],
   },
 ];

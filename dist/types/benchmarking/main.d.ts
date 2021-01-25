@@ -1,4 +1,4 @@
-import { GetSessionApiResponse, NewBenchmarkingSubmission, NewSession, NewSessionApiResponse, SplitSubmission, NewSubmissionApiResponse, SessionListingApiResponse } from "./types";
+import { GetSessionApiResponse, NewBenchmarkingSubmission, NewSession, NewSessionApiResponse, SplitSubmission, NewSubmissionApiResponse, SessionListingApiResponse, DatasetListingApiResponse } from "./types";
 export interface BenchmarkingOpts {
     baseUrl?: string;
     fetch?: Window["fetch"];
@@ -42,4 +42,13 @@ export declare class Benchmarking {
      * @param sessionId the sesssionId...
      */
     getSession(sessionId: string): Promise<GetSessionApiResponse>;
+    /**
+     * listing of all existing datasets
+     */
+    listDatasets(): Promise<DatasetListingApiResponse>;
+    /**
+     * starts a benchmarking session against a pre-existing dataset
+     * @param data cs
+     */
+    newDatasetSession(datasetId: string, data: NewSession): Promise<NewSessionApiResponse>;
 }

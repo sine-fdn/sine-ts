@@ -14,6 +14,9 @@ export declare type NewSubmissionApiResponse = {
     id: string;
 } | ErrorApiResponse;
 export declare type ComputationKind = "RANKING";
+/**
+ * description of a new benchmarking session
+ */
 export interface NewSession {
     title: string;
     numParties: number;
@@ -37,6 +40,15 @@ export interface SessionListingApiSuccessResponse {
         id: string;
         numParties: number;
         numSubmissions: number;
+    }[];
+}
+export declare type DatasetListingApiResponse = DatasetListingApiSuccessResponse | ErrorApiResponse;
+export interface DatasetListingApiSuccessResponse {
+    success: true;
+    datasets: {
+        name: string;
+        id: string;
+        dimensions: string[];
     }[];
 }
 export declare type GetSessionApiResponse = GetSessionApiSuccessResponse | ErrorApiResponse;

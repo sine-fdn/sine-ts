@@ -7,6 +7,7 @@ import {
   SplitSubmission,
   NewSubmissionApiResponse,
   SessionListingApiResponse,
+  DatasetListingApiResponse,
 } from "./types";
 
 export interface BenchmarkingOpts {
@@ -123,17 +124,12 @@ export class Benchmarking {
       `${this.opts.baseUrl}/api/v1` +
       (opts.status ? `?status=${opts.status}` : "");
 
-    return (
-      this.fetch(url)
-        .then((r) => r.json())
-        /*.catch((error) => ({
+    return this.fetch(url)
+      .then((r) => r.json())
+      .catch((error) => ({
         success: false,
         message: `Failed to parse server response: ${error}`,
-      }))*/
-        .then((res: SessionListingApiResponse) =>
-          res.success ? Promise.resolve(res) : Promise.reject(res)
-        )
-    );
+      }));
   }
 
   /**
@@ -151,5 +147,38 @@ export class Benchmarking {
       .then((res: GetSessionApiResponse) =>
         res.success ? Promise.resolve(res) : Promise.reject(res)
       );
+  }
+
+  /**
+   * listing of all existing datasets
+   */
+  async listDatasets(): Promise<DatasetListingApiResponse> {
+    const url = `${this.opts.baseUrl}/api/v1/benchmarking/dataset`;
+
+    return this.fetch(url)
+      .then((r) => r.json())
+      .catch((error) => ({
+        success: false,
+        message: `Failed to parse server response: ${error}`,
+      }));
+  }
+
+  /**
+   * starts a benchmarking session against a pre-existing dataset
+   * @param data cs
+   */
+  async newDatasetSession(
+    datasetId: string,
+    data: NewSession
+  ): Promise<NewSessionApiResponse> {
+    return fetch(`/api/v1/benchmarking/dataset/${datasetId}/new_session`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
+      .then((req) => req.json())
+      .catch((error) => ({
+        success: false,
+        message: `Failed to convert body from API. Error is: ${error}`,
+      }));
   }
 }
