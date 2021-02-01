@@ -49,6 +49,7 @@ export interface DatasetListingApiSuccessResponse {
         name: string;
         id: string;
         dimensions: string[];
+        inputDimensions: string[];
     }[];
 }
 export declare type GetSessionApiResponse = GetSessionApiSuccessResponse | ErrorApiResponse;

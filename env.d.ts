@@ -13,6 +13,7 @@ declare class SecretShare {
   add(n: number | SecretShare): SecretShare;
   sadd(n: number | SecretShare): SecretShare;
   sub(s: SecretShare | number): SecretShare;
+  mult(s: SecretShare | number): SecretShare;
 
   gt(n: number | SecretShare): SecretShare;
   sgt(s: SecretShare): SecretShare;

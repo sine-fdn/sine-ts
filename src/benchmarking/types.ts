@@ -62,6 +62,7 @@ export interface DatasetListingApiSuccessResponse {
     name: string;
     id: string;
     dimensions: string[];
+    inputDimensions: string[];
   }[];
 }
 
