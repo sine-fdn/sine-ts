@@ -171,10 +171,13 @@ export class Benchmarking {
     datasetId: string,
     data: NewSession
   ): Promise<NewSessionApiResponse> {
-    return fetch(`/api/v1/benchmarking/dataset/${datasetId}/new_session`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    })
+    return fetch(
+      `${this.opts.baseUrl}/api/v1/benchmarking/dataset/${datasetId}/new_session`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    )
       .then((req) => req.json())
       .catch((error) => ({
         success: false,
