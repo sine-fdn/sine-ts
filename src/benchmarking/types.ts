@@ -1,6 +1,4 @@
-import { ErrorApiResponse } from "../types";
-
-export type SessionId = string;
+import { ComputationKind, ErrorApiResponse, SessionId } from "../types";
 
 export interface NewBenchmarkingSubmission {
   sessionId: SessionId;
@@ -16,8 +14,6 @@ export interface SplitSubmission {
 export type NewSubmissionApiResponse =
   | { success: true; id: string }
   | ErrorApiResponse;
-
-export type ComputationKind = "RANKING";
 
 /**
  * description of a new benchmarking session

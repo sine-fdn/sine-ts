@@ -205,6 +205,21 @@ class Benchmarking {
       message: `Failed to convert body from API. Error is: ${error}`
     }));
   }
+  /**
+   * Starts a new MPC session to evaluate a named function
+   *
+   * @param functionId id of function to call
+   */
+
+
+  async newFunctionCall(functionId) {
+    return fetch(`${this.opts.baseUrl}/api/v1/benchmarking/function/${functionId}/exec`, {
+      method: "POST"
+    }).then(req => req.json()).catch(error => ({
+      success: false,
+      message: `Failed to convert body from API. Error is: ${error}`
+    }));
+  }
 
 }
 
@@ -237,23 +252,31 @@ function connect({
     ...opts
   });
 }
-async function share_dataset_secrets(jiff_instance, transform, secrets, dataset_node_id, other_node_id) {
-  const [allTransforms, dataset] = await Promise.all([jiff_instance.share_array(transform), jiff_instance.share_array(secrets)]);
-  const datasetSecrets = dataset[dataset_node_id];
+async function share_dataset_secrets(jiff_instance, input_transform, unit_transform, secrets, dataset_node_id, other_node_id) {
+  const [allTransforms, unitTransforms, dataset] = await Promise.all([jiff_instance.share_array(input_transform), jiff_instance.share_array(unit_transform), jiff_instance.share_array(secrets)]);
   const transformSecrets = allTransforms[dataset_node_id];
-  const otherSecrets = allTransforms[other_node_id];
+  const unitTransformSecrets = unitTransforms[dataset_node_id];
+  const inputSecrets = dataset[other_node_id];
+  const datasetSecrets = dataset[dataset_node_id];
 
-  if (!otherSecrets || !transformSecrets || otherSecrets.length != transformSecrets.length || transformSecrets.length == 0) {
+  if (!inputSecrets || !transformSecrets || inputSecrets.length != transformSecrets.length || unitTransformSecrets.length > 0 && inputSecrets.length !== unitTransformSecrets.length || transformSecrets.length == 0) {
+    console.log("oooh");
     throw new Error("Input data invariant(s) failed");
-  } // perform dot-product
+  } // perform dot-product on input transforms x input
 
 
-  const referenceSecret = transformSecrets.reduce((prev, scalar, idx) => scalar.mult(otherSecrets[idx]).add(prev), 0);
+  const input = dotproduct(transformSecrets, inputSecrets);
+  const referenceSecret = unitTransformSecrets.length === 0 ? input : input.sdiv(dotproduct(unitTransformSecrets, inputSecrets));
   return {
     datasetSecrets,
     referenceSecret
   };
 }
+
+function dotproduct(lhs, rhs) {
+  return lhs.reduce((prev, scalar, idx) => scalar.smult(rhs[idx]).add(prev), 0);
+}
+
 function sort(secrets_in) {
   function oddEvenSort(a, lo, n) {
     if (n > 1) {

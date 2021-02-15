@@ -1,3 +1,5 @@
+import { FunctionId } from "../types";
+import { FunctionCallApiResponse } from "./../function/types";
 import computeShares from "./computeShares";
 import {
   GetSessionApiResponse,
@@ -176,6 +178,27 @@ export class Benchmarking {
       {
         method: "POST",
         body: JSON.stringify(data),
+      }
+    )
+      .then((req) => req.json())
+      .catch((error) => ({
+        success: false,
+        message: `Failed to convert body from API. Error is: ${error}`,
+      }));
+  }
+
+  /**
+   * Starts a new MPC session to evaluate a named function
+   *
+   * @param functionId id of function to call
+   */
+  async newFunctionCall(
+    functionId: FunctionId
+  ): Promise<FunctionCallApiResponse> {
+    return fetch(
+      `${this.opts.baseUrl}/api/v1/benchmarking/function/${functionId}/exec`,
+      {
+        method: "POST",
       }
     )
       .then((req) => req.json())

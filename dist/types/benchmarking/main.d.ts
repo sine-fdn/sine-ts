@@ -1,3 +1,5 @@
+import { FunctionId } from "../types";
+import { FunctionCallApiResponse } from "./../function/types";
 import { GetSessionApiResponse, NewBenchmarkingSubmission, NewSession, NewSessionApiResponse, SplitSubmission, NewSubmissionApiResponse, SessionListingApiResponse, DatasetListingApiResponse } from "./types";
 export interface BenchmarkingOpts {
     baseUrl?: string;
@@ -51,4 +53,10 @@ export declare class Benchmarking {
      * @param data cs
      */
     newDatasetSession(datasetId: string, data: NewSession): Promise<NewSessionApiResponse>;
+    /**
+     * Starts a new MPC session to evaluate a named function
+     *
+     * @param functionId id of function to call
+     */
+    newFunctionCall(functionId: FunctionId): Promise<FunctionCallApiResponse>;
 }

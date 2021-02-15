@@ -1,5 +1,4 @@
-import { ErrorApiResponse } from "../types";
-export declare type SessionId = string;
+import { ComputationKind, ErrorApiResponse, SessionId } from "../types";
 export interface NewBenchmarkingSubmission {
     sessionId: SessionId;
     submitter: string;
@@ -13,7 +12,6 @@ export declare type NewSubmissionApiResponse = {
     success: true;
     id: string;
 } | ErrorApiResponse;
-export declare type ComputationKind = "RANKING";
 /**
  * description of a new benchmarking session
  */

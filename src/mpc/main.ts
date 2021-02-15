@@ -30,39 +30,53 @@ interface ShareSecretsResult {
 
 export async function share_dataset_secrets(
   jiff_instance: JIFFClient,
-  transform: number[],
+  input_transform: number[],
+  unit_transform: number[],
   secrets: number[],
   dataset_node_id: number,
   other_node_id: number
 ): Promise<ShareSecretsResult> {
-  const [allTransforms, dataset] = await Promise.all([
-    jiff_instance.share_array(transform),
+  const [allTransforms, unitTransforms, dataset] = await Promise.all([
+    jiff_instance.share_array(input_transform),
+    jiff_instance.share_array(unit_transform),
     jiff_instance.share_array(secrets),
   ]);
 
-  const datasetSecrets = dataset[dataset_node_id];
   const transformSecrets = allTransforms[dataset_node_id];
-  const otherSecrets = allTransforms[other_node_id];
+  const unitTransformSecrets = unitTransforms[dataset_node_id];
+  const inputSecrets = dataset[other_node_id];
+  const datasetSecrets = dataset[dataset_node_id];
 
   if (
-    !otherSecrets ||
+    !inputSecrets ||
     !transformSecrets ||
-    otherSecrets.length != transformSecrets.length ||
+    inputSecrets.length != transformSecrets.length ||
+    (unitTransformSecrets.length > 0 &&
+      inputSecrets.length !== unitTransformSecrets.length) ||
     transformSecrets.length == 0
   ) {
+    console.log("oooh");
     throw new Error("Input data invariant(s) failed");
   }
 
-  // perform dot-product
-  const referenceSecret = transformSecrets.reduce<SecretShare | number>(
-    (prev, scalar, idx) => scalar.mult(otherSecrets[idx]).add(prev),
-    0
-  ) as SecretShare;
+  // perform dot-product on input transforms x input
+  const input = dotproduct(transformSecrets, inputSecrets);
+  const referenceSecret =
+    unitTransformSecrets.length === 0
+      ? input
+      : input.sdiv(dotproduct(unitTransformSecrets, inputSecrets));
 
   return {
     datasetSecrets,
     referenceSecret,
   };
+}
+
+function dotproduct(lhs: SecretShare[], rhs: SecretShare[]): SecretShare {
+  return lhs.reduce<SecretShare | number>(
+    (prev, scalar, idx) => scalar.smult(rhs[idx]).add(prev),
+    0
+  ) as SecretShare;
 }
 
 export function sort(secrets_in: SecretShare[]): SecretShare[] {
