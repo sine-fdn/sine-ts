@@ -36,7 +36,7 @@ declare class JIFFClient {
   share_array(
     secrets: number[],
     length?: number
-  ): { [party_id: string]: SecretShare[] };
+  ): Promise<{ [party_id: string]: SecretShare[] }>;
   open_array(shares: SecretShare[]): Promise<number[]>;
 
   disconnect(safe?: boolean, free?: boolean): void;

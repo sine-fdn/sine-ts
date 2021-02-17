@@ -252,31 +252,28 @@ function connect({
     ...opts
   });
 }
-async function share_dataset_secrets(jiff_instance, input_transform, unit_transform, secrets, dataset_node_id, other_node_id) {
-  const [allTransforms, unitTransforms, dataset] = await Promise.all([jiff_instance.share_array(input_transform), jiff_instance.share_array(unit_transform), jiff_instance.share_array(secrets)]);
-  const transformSecrets = allTransforms[dataset_node_id];
-  const unitTransformSecrets = unitTransforms[dataset_node_id];
-  const inputSecrets = dataset[other_node_id];
+async function share_dataset_secrets(jiff_instance, secrets, dataset_node_id, other_node_id) {
+  const dataset = await jiff_instance.share_array(secrets);
+  const referenceSecrets = dataset[other_node_id];
   const datasetSecrets = dataset[dataset_node_id];
 
-  if (!inputSecrets || !transformSecrets || inputSecrets.length != transformSecrets.length || unitTransformSecrets.length > 0 && inputSecrets.length !== unitTransformSecrets.length || transformSecrets.length == 0) {
-    console.log("oooh");
-    throw new Error("Input data invariant(s) failed");
-  } // perform dot-product on input transforms x input
+  if (!referenceSecrets || !datasetSecrets) {
+    console.log("dump", referenceSecrets, datasetSecrets, dataset);
+    throw new Error("Protocol invariant(s) failed");
+  }
 
-
-  const input = dotproduct(transformSecrets, inputSecrets);
-  const referenceSecret = unitTransformSecrets.length === 0 ? input : input.sdiv(dotproduct(unitTransformSecrets, inputSecrets));
   return {
     datasetSecrets,
-    referenceSecret
+    referenceSecrets
   };
 }
-
 function dotproduct(lhs, rhs) {
+  if (lhs.length !== rhs.length) {
+    throw new Error("Protocal invariant failed");
+  }
+
   return lhs.reduce((prev, scalar, idx) => scalar.smult(rhs[idx]).add(prev), 0);
 }
-
 function sort(secrets_in) {
   function oddEvenSort(a, lo, n) {
     if (n > 1) {
@@ -349,6 +346,7 @@ var index = /*#__PURE__*/Object.freeze({
   __proto__: null,
   connect: connect,
   share_dataset_secrets: share_dataset_secrets,
+  dotproduct: dotproduct,
   sort: sort,
   ranking: ranking,
   ranking_const: ranking_const
