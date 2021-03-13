@@ -197,7 +197,7 @@ class Benchmarking {
 
 
   async newDatasetSession(datasetId, data) {
-    return fetch(`${this.opts.baseUrl}/api/v1/benchmarking/dataset/${datasetId}/new_session`, {
+    return this.fetch(`${this.opts.baseUrl}/api/v1/benchmarking/dataset/${datasetId}/new_session`, {
       method: "POST",
       body: JSON.stringify(data)
     }).then(req => req.json()).catch(error => ({
@@ -213,7 +213,7 @@ class Benchmarking {
 
 
   async newFunctionCall(functionId) {
-    return fetch(`${this.opts.baseUrl}/api/v1/benchmarking/function/${functionId}/exec`, {
+    return this.fetch(`${this.opts.baseUrl}/api/v1/benchmarking/function/${functionId}/exec`, {
       method: "POST"
     }).then(req => req.json()).catch(error => ({
       success: false,

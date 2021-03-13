@@ -173,7 +173,7 @@ export class Benchmarking {
     datasetId: string,
     data: NewSession
   ): Promise<NewSessionApiResponse> {
-    return fetch(
+    return this.fetch(
       `${this.opts.baseUrl}/api/v1/benchmarking/dataset/${datasetId}/new_session`,
       {
         method: "POST",
@@ -195,7 +195,7 @@ export class Benchmarking {
   async newFunctionCall(
     functionId: FunctionId
   ): Promise<FunctionCallApiResponse> {
-    return fetch(
+    return this.fetch(
       `${this.opts.baseUrl}/api/v1/benchmarking/function/${functionId}/exec`,
       {
         method: "POST",

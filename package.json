@@ -1,6 +1,6 @@
 {
   "name": "@sine-fdn/sine-ts",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "description": "The SINE Typescript SDK for embedding SINE e.V. technology into various domains and services",
   "main": "dist/sine.js",
   "module": "dist/sine.esm.js",
@@ -29,7 +29,7 @@
     "typecheck": "tsc"
   },
   "dependencies": {
-    "jiff-mpc": "github:multiparty/jiff#2fc9231b45a497196c9d636964810e8a2f23d705"
+    "jiff-mpc": "github:multiparty/jiff#eb7fc0c12b84a698079ad22a349f0d9e7b9444bb"
   },
   "devDependencies": {
     "@babel/core": "^7.12.10",
