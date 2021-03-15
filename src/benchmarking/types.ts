@@ -15,6 +15,13 @@ export type NewSubmissionApiResponse =
   | { success: true; id: string }
   | ErrorApiResponse;
 
+export type ComputationOptions = BenchmarkingComputationOptions;
+export interface BenchmarkingComputationOptions {
+  delegated: true;
+  numShards: number;
+  shardId: number;
+}
+
 /**
  * description of a new benchmarking session
  */
@@ -24,6 +31,7 @@ export interface NewSession {
   input: {
     title: string;
     computation: ComputationKind;
+    options?: ComputationOptions;
   }[];
 }
 
