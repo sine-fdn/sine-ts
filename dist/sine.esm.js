@@ -334,7 +334,7 @@ function ranking_const(my_secret, secrets_sorted) {
   return result;
 }
 
-var index = /*#__PURE__*/Object.freeze({
+var _static = /*#__PURE__*/Object.freeze({
   __proto__: null,
   connect: connect,
   share_dataset_secrets: share_dataset_secrets,
@@ -344,4 +344,84 @@ var index = /*#__PURE__*/Object.freeze({
   ranking_const: ranking_const
 });
 
-export { Benchmarking, SINE, index as mpc };
+class MPCClient {
+  constructor({
+    client,
+    coordinatorUrl
+  }) {
+    this.client = client;
+    this.coordinatorUrl = coordinatorUrl;
+  }
+
+  async performBenchmarking(dataset, secretData, numShards) {
+    const delegated = numShards !== undefined;
+    const session = {
+      title: dataset.name,
+      numParties: delegated ? 3 : 2,
+      input: dataset.dimensions.map(d => ({
+        title: d,
+        computation: "RANKING",
+        options: numShards ? {
+          delegated: true,
+          numShards: 1,
+          shardId: 0
+        } : undefined
+      }))
+    };
+    const sessionRes = await this.client.newDatasetSession(dataset.id, session);
+
+    if (!sessionRes.success) {
+      return Promise.reject(sessionRes);
+    }
+
+    const sessionId = sessionRes.id;
+    return {
+      sessionId,
+      results: datasetBenchmarking(this.coordinatorUrl, sessionId, secretData, delegated).then(results => results.map(r => r + 1))
+    };
+  }
+
+}
+/**
+ * performs the MPC protocol against a single dimension
+ * @param jiff_instance low-level MPC connection
+ * @param secretInput user-level input vector (to remain secret)
+ */
+
+async function benchmarkingProtocolDelegated(jiff_instance, secretInput) {
+  await jiff_instance.share_array([secretInput], undefined, undefined, [1, 2]);
+  const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
+  return await jiff_instance.open(rank);
+}
+
+async function benchmarkingProtocolDirect(jiff_instance, secretInput) {
+  const secrets = await share_dataset_secrets(jiff_instance, [secretInput], 1, 2);
+  return await jiff_instance.open(ranking_const(secrets.referenceSecrets[0], secrets.datasetSecrets));
+}
+
+async function benchmarkingProtocol(jiff_instance, secretInput, delegated) {
+  return await (delegated ? benchmarkingProtocolDelegated(jiff_instance, secretInput) : benchmarkingProtocolDirect(jiff_instance, secretInput));
+}
+
+async function datasetBenchmarking(coordinatorUrl, sessionId, secretData, delegated = false) {
+  return new Promise(resolve => {
+    connect({
+      computationId: sessionId,
+      hostname: coordinatorUrl,
+      party_id: delegated ? 3 : 2,
+      party_count: delegated ? 3 : 2,
+      onConnect: async jiff_instance => {
+        const res = [];
+
+        for (const dimension in secretData) {
+          res.push(await benchmarkingProtocol(jiff_instance, secretData[dimension], delegated));
+        }
+
+        jiff_instance.disconnect(true, true);
+        resolve(res);
+      }
+    });
+  });
+}
+
+export { Benchmarking, MPCClient, SINE, _static as mpc };
