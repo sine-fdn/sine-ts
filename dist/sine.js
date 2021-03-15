@@ -361,6 +361,36 @@ class MPCClient {
     this.coordinatorUrl = coordinatorUrl;
   }
 
+  async performFunctionCall(functionId, secretInput) {
+    const res = await this.client.newFunctionCall(functionId);
+
+    if (!res.success) {
+      return Promise.reject(res);
+    }
+
+    const sessionId = res.sessionId;
+    const result = new Promise(resolve => {
+      connect({
+        computationId: sessionId,
+        hostname: this.coordinatorUrl,
+        party_id: 2,
+        party_count: 2,
+        onConnect: async jiff_instance => {
+          console.log("connected!");
+          const result = await functionCallProtocol(jiff_instance, secretInput);
+          const res = await jiff_instance.open_array([result]);
+          console.log("result is: ", res);
+          jiff_instance.disconnect(true, true);
+          resolve(res[0]);
+        }
+      });
+    });
+    return {
+      sessionId,
+      result
+    };
+  }
+
   async performBenchmarking(dataset, secretData, numShards) {
     const delegated = numShards !== undefined;
     const session = {
@@ -390,11 +420,17 @@ class MPCClient {
   }
 
 }
+
+async function functionCallProtocol(jiff_instance, secretInput) {
+  const secrets = await share_dataset_secrets(jiff_instance, secretInput, 1, 2);
+  return dotproduct(secrets.datasetSecrets, secrets.referenceSecrets);
+}
 /**
  * performs the MPC protocol against a single dimension
  * @param jiff_instance low-level MPC connection
  * @param secretInput user-level input vector (to remain secret)
  */
+
 
 async function benchmarkingProtocolDelegated(jiff_instance, secretInput) {
   await jiff_instance.share_array([secretInput], undefined, undefined, [1, 2]);

@@ -2,7 +2,7 @@ import {
   DatasetListingApiSuccessResponse,
   NewSession,
 } from "../benchmarking/types";
-import { SessionId } from "../types";
+import { FunctionId, SessionId } from "../types";
 import { Benchmarking } from "./../benchmarking/main";
 import * as mpc from "./static";
 
@@ -16,6 +16,11 @@ export interface BenchmarkingResult {
   sessionId: string;
 }
 
+export interface FunctionCallResult {
+  sessionId: string;
+  result: Promise<number>;
+}
+
 type Dataset = DatasetListingApiSuccessResponse["datasets"][0];
 
 export class MPCClient {
@@ -25,6 +30,42 @@ export class MPCClient {
   constructor({ client, coordinatorUrl }: MPCClientOpts) {
     this.client = client;
     this.coordinatorUrl = coordinatorUrl;
+  }
+
+  async performFunctionCall(
+    functionId: FunctionId,
+    secretInput: number[]
+  ): Promise<FunctionCallResult> {
+    const res = await this.client.newFunctionCall(functionId);
+    if (!res.success) {
+      return Promise.reject(res);
+    }
+
+    const sessionId = res.sessionId;
+
+    const result: Promise<number> = new Promise((resolve) => {
+      mpc.connect({
+        computationId: sessionId,
+        hostname: this.coordinatorUrl,
+        party_id: 2,
+        party_count: 2,
+        onConnect: async (jiff_instance: JIFFClient) => {
+          console.log("connected!");
+
+          const result = await functionCallProtocol(jiff_instance, secretInput);
+          const res = await jiff_instance.open_array([result]);
+          console.log("result is: ", res);
+
+          jiff_instance.disconnect(true, true);
+          resolve(res[0]);
+        },
+      });
+    });
+
+    return {
+      sessionId,
+      result,
+    };
   }
 
   async performBenchmarking(
@@ -64,6 +105,20 @@ export class MPCClient {
       ).then((results) => results.map((r) => r + 1)),
     };
   }
+}
+
+async function functionCallProtocol(
+  jiff_instance: JIFFClient,
+  secretInput: number[]
+): Promise<SecretShare> {
+  const secrets = await mpc.share_dataset_secrets(
+    jiff_instance,
+    secretInput,
+    1,
+    2
+  );
+
+  return mpc.dotproduct(secrets.datasetSecrets, secrets.referenceSecrets);
 }
 
 /**
