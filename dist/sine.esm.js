@@ -204,8 +204,8 @@ class Benchmarking {
    */
 
 
-  async newFunctionCall(functionId) {
-    return this.fetch(`${this.opts.baseUrl}/api/v1/benchmarking/function/${functionId}/exec`, {
+  async newFunctionCall(functionId, delegated = false) {
+    return this.fetch(`${this.opts.baseUrl}/api/v1/benchmarking/function/${functionId}/exec${delegated ? "?delegated" : ""}`, {
       method: "POST"
     }).then(req => req.json()).catch(error => ({
       success: false,
@@ -353,8 +353,8 @@ class MPCClient {
     this.coordinatorUrl = coordinatorUrl;
   }
 
-  async performFunctionCall(functionId, secretInput) {
-    const res = await this.client.newFunctionCall(functionId);
+  async performFunctionCall(functionId, secretInput, delegated) {
+    const res = await this.client.newFunctionCall(functionId, delegated);
 
     if (!res.success) {
       return Promise.reject(res);
@@ -365,15 +365,12 @@ class MPCClient {
       connect({
         computationId: sessionId,
         hostname: this.coordinatorUrl,
-        party_id: 2,
-        party_count: 2,
+        party_id: delegated ? 3 : 2,
+        party_count: delegated ? 3 : 2,
         onConnect: async jiff_instance => {
-          console.log("connected!");
-          const result = await functionCallProtocol(jiff_instance, secretInput);
-          const res = await jiff_instance.open_array([result]);
-          console.log("result is: ", res);
+          const result = delegated ? await delegatedProtocol(jiff_instance, secretInput) : await functionCallProtocol(jiff_instance, secretInput);
           jiff_instance.disconnect(true, true);
-          resolve(res[0]);
+          resolve(result);
         }
       });
     });
@@ -415,7 +412,9 @@ class MPCClient {
 
 async function functionCallProtocol(jiff_instance, secretInput) {
   const secrets = await share_dataset_secrets(jiff_instance, secretInput, 1, 2);
-  return dotproduct(secrets.datasetSecrets, secrets.referenceSecrets);
+  const rank = dotproduct(secrets.datasetSecrets, secrets.referenceSecrets);
+  const [result] = await jiff_instance.open_array([rank]);
+  return result;
 }
 /**
  * performs the MPC protocol against a single dimension
@@ -424,8 +423,8 @@ async function functionCallProtocol(jiff_instance, secretInput) {
  */
 
 
-async function benchmarkingProtocolDelegated(jiff_instance, secretInput) {
-  await jiff_instance.share_array([secretInput], undefined, undefined, [1, 2]);
+async function delegatedProtocol(jiff_instance, secretInput) {
+  await jiff_instance.share_array(secretInput, undefined, undefined, [1, 2]);
   const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
   return await jiff_instance.open(rank);
 }
@@ -436,7 +435,7 @@ async function benchmarkingProtocolDirect(jiff_instance, secretInput) {
 }
 
 async function benchmarkingProtocol(jiff_instance, secretInput, delegated) {
-  return await (delegated ? benchmarkingProtocolDelegated(jiff_instance, secretInput) : benchmarkingProtocolDirect(jiff_instance, secretInput));
+  return await (delegated ? delegatedProtocol(jiff_instance, [secretInput]) : benchmarkingProtocolDirect(jiff_instance, secretInput));
 }
 
 async function datasetBenchmarking(coordinatorUrl, sessionId, secretData, delegated = false) {

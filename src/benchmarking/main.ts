@@ -193,10 +193,13 @@ export class Benchmarking {
    * @param functionId id of function to call
    */
   async newFunctionCall(
-    functionId: FunctionId
+    functionId: FunctionId,
+    delegated = false
   ): Promise<FunctionCallApiResponse> {
     return this.fetch(
-      `${this.opts.baseUrl}/api/v1/benchmarking/function/${functionId}/exec`,
+      `${this.opts.baseUrl}/api/v1/benchmarking/function/${functionId}/exec${
+        delegated ? "?delegated" : ""
+      }`,
       {
         method: "POST",
       }

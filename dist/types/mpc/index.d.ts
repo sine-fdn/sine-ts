@@ -18,7 +18,7 @@ export declare class MPCClient {
     private readonly client;
     private readonly coordinatorUrl;
     constructor({ client, coordinatorUrl }: MPCClientOpts);
-    performFunctionCall(functionId: FunctionId, secretInput: number[]): Promise<FunctionCallResult>;
+    performFunctionCall(functionId: FunctionId, secretInput: number[], delegated: boolean): Promise<FunctionCallResult>;
     performBenchmarking(dataset: Dataset, secretData: number[], numShards?: number): Promise<BenchmarkingResult>;
 }
 export {};

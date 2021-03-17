@@ -58,5 +58,5 @@ export declare class Benchmarking {
      *
      * @param functionId id of function to call
      */
-    newFunctionCall(functionId: FunctionId): Promise<FunctionCallApiResponse>;
+    newFunctionCall(functionId: FunctionId, delegated?: boolean): Promise<FunctionCallApiResponse>;
 }

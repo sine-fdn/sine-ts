@@ -34,9 +34,10 @@ export class MPCClient {
 
   async performFunctionCall(
     functionId: FunctionId,
-    secretInput: number[]
+    secretInput: number[],
+    delegated: boolean
   ): Promise<FunctionCallResult> {
-    const res = await this.client.newFunctionCall(functionId);
+    const res = await this.client.newFunctionCall(functionId, delegated);
     if (!res.success) {
       return Promise.reject(res);
     }
@@ -47,17 +48,15 @@ export class MPCClient {
       mpc.connect({
         computationId: sessionId,
         hostname: this.coordinatorUrl,
-        party_id: 2,
-        party_count: 2,
+        party_id: delegated ? 3 : 2,
+        party_count: delegated ? 3 : 2,
         onConnect: async (jiff_instance: JIFFClient) => {
-          console.log("connected!");
-
-          const result = await functionCallProtocol(jiff_instance, secretInput);
-          const res = await jiff_instance.open_array([result]);
-          console.log("result is: ", res);
+          const result = delegated
+            ? await delegatedProtocol(jiff_instance, secretInput)
+            : await functionCallProtocol(jiff_instance, secretInput);
 
           jiff_instance.disconnect(true, true);
-          resolve(res[0]);
+          resolve(result);
         },
       });
     });
@@ -110,7 +109,7 @@ export class MPCClient {
 async function functionCallProtocol(
   jiff_instance: JIFFClient,
   secretInput: number[]
-): Promise<SecretShare> {
+): Promise<number> {
   const secrets = await mpc.share_dataset_secrets(
     jiff_instance,
     secretInput,
@@ -118,7 +117,10 @@ async function functionCallProtocol(
     2
   );
 
-  return mpc.dotproduct(secrets.datasetSecrets, secrets.referenceSecrets);
+  const rank = mpc.dotproduct(secrets.datasetSecrets, secrets.referenceSecrets);
+  const [result] = await jiff_instance.open_array([rank]);
+
+  return result;
 }
 
 /**
@@ -126,11 +128,11 @@ async function functionCallProtocol(
  * @param jiff_instance low-level MPC connection
  * @param secretInput user-level input vector (to remain secret)
  */
-async function benchmarkingProtocolDelegated(
+async function delegatedProtocol(
   jiff_instance: JIFFClient,
-  secretInput: number
+  secretInput: number[]
 ): Promise<number> {
-  await jiff_instance.share_array([secretInput], undefined, undefined, [1, 2]);
+  await jiff_instance.share_array(secretInput, undefined, undefined, [1, 2]);
   const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
   return await jiff_instance.open(rank);
 }
@@ -157,7 +159,7 @@ async function benchmarkingProtocol(
   delegated: boolean
 ): Promise<number> {
   return await (delegated
-    ? benchmarkingProtocolDelegated(jiff_instance, secretInput)
+    ? delegatedProtocol(jiff_instance, [secretInput])
     : benchmarkingProtocolDirect(jiff_instance, secretInput));
 }
 
@@ -175,6 +177,7 @@ async function datasetBenchmarking(
       party_count: delegated ? 3 : 2,
       onConnect: async (jiff_instance: JIFFClient) => {
         const res: number[] = [];
+
         for (const dimension in secretData) {
           res.push(
             await benchmarkingProtocol(
