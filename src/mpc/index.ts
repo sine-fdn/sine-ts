@@ -6,6 +6,8 @@ import { FunctionId, SessionId } from "../types";
 import { Benchmarking } from "./../benchmarking/main";
 import * as mpc from "./static";
 
+export const Zp = 24499973;
+
 export interface MPCClientOpts {
   client: Benchmarking;
   coordinatorUrl: string;
@@ -50,6 +52,7 @@ export class MPCClient {
         hostname: this.coordinatorUrl,
         party_id: delegated ? 3 : 2,
         party_count: delegated ? 3 : 2,
+        Zp,
         onConnect: async (jiff_instance: JIFFClient) => {
           const result = delegated
             ? await delegatedProtocol(jiff_instance, secretInput)
@@ -175,6 +178,7 @@ async function datasetBenchmarking(
       hostname: coordinatorUrl,
       party_id: delegated ? 3 : 2,
       party_count: delegated ? 3 : 2,
+      Zp,
       onConnect: async (jiff_instance: JIFFClient) => {
         const res: number[] = [];
 

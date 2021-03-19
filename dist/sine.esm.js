@@ -1,6 +1,6 @@
 import JIFFClient from 'jiff-mpc/lib/jiff-client.js';
 
-const ZP = 16777729;
+const ZP = 24499973;
 
 function mkRandomBytes(bytesNeeded) {
   const randomBytes = new Uint8Array(bytesNeeded);
@@ -344,6 +344,7 @@ var _static = /*#__PURE__*/Object.freeze({
   ranking_const: ranking_const
 });
 
+const Zp = 24499973;
 class MPCClient {
   constructor({
     client,
@@ -367,6 +368,7 @@ class MPCClient {
         hostname: this.coordinatorUrl,
         party_id: delegated ? 3 : 2,
         party_count: delegated ? 3 : 2,
+        Zp,
         onConnect: async jiff_instance => {
           const result = delegated ? await delegatedProtocol(jiff_instance, secretInput) : await functionCallProtocol(jiff_instance, secretInput);
           jiff_instance.disconnect(true, true);
@@ -445,6 +447,7 @@ async function datasetBenchmarking(coordinatorUrl, sessionId, secretData, delega
       hostname: coordinatorUrl,
       party_id: delegated ? 3 : 2,
       party_count: delegated ? 3 : 2,
+      Zp,
       onConnect: async jiff_instance => {
         const res = [];
 
@@ -459,4 +462,4 @@ async function datasetBenchmarking(coordinatorUrl, sessionId, secretData, delega
   });
 }
 
-export { Benchmarking, MPCClient, SINE, _static as mpc };
+export { Benchmarking, MPCClient, SINE, Zp, _static as mpc };

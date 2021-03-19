@@ -1,6 +1,7 @@
 import { DatasetListingApiSuccessResponse } from "../benchmarking/types";
 import { FunctionId } from "../types";
 import { Benchmarking } from "./../benchmarking/main";
+export declare const Zp = 24499973;
 export interface MPCClientOpts {
     client: Benchmarking;
     coordinatorUrl: string;
