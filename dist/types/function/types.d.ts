@@ -8,6 +8,7 @@ export interface FunctionMetadata {
 export interface FunctionCallApiSuccessResponse {
     success: true;
     sessionId: SessionId;
+    coordinatorUrl: string;
 }
 export declare type FunctionListingApiResponse = ErrorApiResponse | FunctionListingApiSuccessResponse;
 export interface FunctionListingApiSuccessResponse {

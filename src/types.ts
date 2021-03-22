@@ -5,6 +5,8 @@
 
 export type SessionId = string;
 
+export type CoordinatorUrl = string;
+
 export type FunctionId = string;
 
 export type ComputationKind =

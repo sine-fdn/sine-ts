@@ -4,7 +4,6 @@ import { Benchmarking } from "./../benchmarking/main";
 export declare const Zp = 24499973;
 export interface MPCClientOpts {
     client: Benchmarking;
-    coordinatorUrl: string;
 }
 export interface BenchmarkingResult {
     results: Promise<number[]>;
@@ -17,8 +16,7 @@ export interface FunctionCallResult {
 declare type Dataset = DatasetListingApiSuccessResponse["datasets"][0];
 export declare class MPCClient {
     private readonly client;
-    private readonly coordinatorUrl;
-    constructor({ client, coordinatorUrl }: MPCClientOpts);
+    constructor({ client }: MPCClientOpts);
     performFunctionCall(functionId: FunctionId, secretInput: number[], delegated: boolean): Promise<FunctionCallResult>;
     performBenchmarking(dataset: Dataset, secretData: number[], numShards?: number): Promise<BenchmarkingResult>;
 }

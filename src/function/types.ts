@@ -13,6 +13,7 @@ export interface FunctionMetadata {
 export interface FunctionCallApiSuccessResponse {
   success: true;
   sessionId: SessionId;
+  coordinatorUrl: string;
 }
 
 export type FunctionListingApiResponse =

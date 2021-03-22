@@ -355,11 +355,9 @@ var _static = /*#__PURE__*/Object.freeze({
 const Zp = 24499973;
 class MPCClient {
   constructor({
-    client,
-    coordinatorUrl
+    client
   }) {
     this.client = client;
-    this.coordinatorUrl = coordinatorUrl;
   }
 
   async performFunctionCall(functionId, secretInput, delegated) {
@@ -373,7 +371,7 @@ class MPCClient {
     const result = new Promise(resolve => {
       connect({
         computationId: sessionId,
-        hostname: this.coordinatorUrl,
+        hostname: res.coordinatorUrl,
         party_id: delegated ? 3 : 2,
         party_count: delegated ? 3 : 2,
         Zp,
@@ -414,7 +412,7 @@ class MPCClient {
     const sessionId = sessionRes.id;
     return {
       sessionId,
-      results: datasetBenchmarking(this.coordinatorUrl, sessionId, secretData, delegated).then(results => results.map(r => r + 1))
+      results: datasetBenchmarking(sessionRes.coordinatorUrl, sessionId, secretData, delegated).then(results => results.map(r => r + 1))
     };
   }
 

@@ -10,7 +10,6 @@ export const Zp = 24499973;
 
 export interface MPCClientOpts {
   client: Benchmarking;
-  coordinatorUrl: string;
 }
 
 export interface BenchmarkingResult {
@@ -27,11 +26,9 @@ type Dataset = DatasetListingApiSuccessResponse["datasets"][0];
 
 export class MPCClient {
   private readonly client: Benchmarking;
-  private readonly coordinatorUrl: string;
 
-  constructor({ client, coordinatorUrl }: MPCClientOpts) {
+  constructor({ client }: MPCClientOpts) {
     this.client = client;
-    this.coordinatorUrl = coordinatorUrl;
   }
 
   async performFunctionCall(
@@ -49,7 +46,7 @@ export class MPCClient {
     const result: Promise<number> = new Promise((resolve) => {
       mpc.connect({
         computationId: sessionId,
-        hostname: this.coordinatorUrl,
+        hostname: res.coordinatorUrl,
         party_id: delegated ? 3 : 2,
         party_count: delegated ? 3 : 2,
         Zp,
@@ -100,7 +97,7 @@ export class MPCClient {
     return {
       sessionId,
       results: datasetBenchmarking(
-        this.coordinatorUrl,
+        sessionRes.coordinatorUrl,
         sessionId,
         secretData,
         delegated

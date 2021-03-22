@@ -1,3 +1,4 @@
+import { CoordinatorUrl } from "./../types";
 import { ComputationKind, ErrorApiResponse, SessionId } from "../types";
 export interface NewBenchmarkingSubmission {
     sessionId: SessionId;
@@ -33,6 +34,11 @@ export interface NewSession {
 export declare type NewSessionApiResponse = {
     success: true;
     id: SessionId;
+} | ErrorApiResponse;
+export declare type NewDatasetSessionApiResponse = {
+    success: true;
+    id: SessionId;
+    coordinatorUrl: CoordinatorUrl;
 } | ErrorApiResponse;
 /**
  * API response when GET'ing list of sessions

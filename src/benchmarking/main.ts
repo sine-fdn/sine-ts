@@ -10,6 +10,7 @@ import {
   NewSubmissionApiResponse,
   SessionListingApiResponse,
   DatasetListingApiResponse,
+  NewDatasetSessionApiResponse,
 } from "./types";
 
 export interface BenchmarkingOpts {
@@ -172,7 +173,7 @@ export class Benchmarking {
   async newDatasetSession(
     datasetId: string,
     data: NewSession
-  ): Promise<NewSessionApiResponse> {
+  ): Promise<NewDatasetSessionApiResponse> {
     return this.fetch(
       `${this.opts.baseUrl}/api/v1/benchmarking/dataset/${datasetId}/new_session`,
       {
