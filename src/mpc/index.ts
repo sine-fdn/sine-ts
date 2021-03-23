@@ -12,8 +12,15 @@ export interface MPCClientOpts {
   client: Benchmarking;
 }
 
+export type BenchmarkingQuantile = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+/** result of a benchmark computation */
+export interface BenchmarkingRank {
+  rank: number;
+  quantile: BenchmarkingQuantile;
+}
+
 export interface BenchmarkingResult {
-  results: Promise<number[]>;
+  results: Promise<BenchmarkingRank[]>;
   sessionId: string;
 }
 
@@ -101,7 +108,7 @@ export class MPCClient {
         sessionId,
         secretData,
         delegated
-      ).then((results) => results.map((r) => r + 1)),
+      ),
     };
   }
 }
@@ -134,13 +141,34 @@ async function delegatedProtocol(
 ): Promise<number> {
   await jiff_instance.share_array(secretInput, undefined, undefined, [1, 2]);
   const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
-  return await jiff_instance.open(rank);
+  return jiff_instance.open(rank);
+}
+
+function quantile(rank: number, datasetSize: number): BenchmarkingQuantile {
+  console.log("quantile", rank, datasetSize);
+  if (datasetSize == 0) return 1;
+
+  const q = 1 + Math.floor((rank / datasetSize) * 10);
+  return Math.max(1, Math.min(10, q)) as BenchmarkingQuantile;
+}
+
+async function benchmarkingProtocolDelegated(
+  jiff_instance: JIFFClient,
+  secretInput: number
+): Promise<BenchmarkingRank> {
+  await jiff_instance.share_array([secretInput], undefined, undefined, [1, 2]);
+  const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
+  const rankResult = (await jiff_instance.open(rank)) + 1;
+  const datasetSizes = jiff_instance.share(0, undefined, [3], [1, 2]);
+  const datasetSize = await jiff_instance.open(datasetSizes[1]);
+
+  return { rank: rankResult, quantile: quantile(rankResult, datasetSize) };
 }
 
 async function benchmarkingProtocolDirect(
   jiff_instance: JIFFClient,
   secretInput: number
-): Promise<number> {
+): Promise<BenchmarkingRank> {
   const secrets = await mpc.share_dataset_secrets(
     jiff_instance,
     [secretInput],
@@ -148,18 +176,21 @@ async function benchmarkingProtocolDirect(
     2
   );
 
-  return await jiff_instance.open(
-    mpc.ranking_const(secrets.referenceSecrets[0], secrets.datasetSecrets)
-  );
+  const datasetSize = secrets.datasetSecrets.length + 1;
+  const rank =
+    (await jiff_instance.open(
+      mpc.ranking_const(secrets.referenceSecrets[0], secrets.datasetSecrets)
+    )) + 1;
+  return { rank, quantile: quantile(rank, datasetSize) };
 }
 
 async function benchmarkingProtocol(
   jiff_instance: JIFFClient,
   secretInput: number,
   delegated: boolean
-): Promise<number> {
+): Promise<BenchmarkingRank> {
   return await (delegated
-    ? delegatedProtocol(jiff_instance, [secretInput])
+    ? benchmarkingProtocolDelegated(jiff_instance, secretInput)
     : benchmarkingProtocolDirect(jiff_instance, secretInput));
 }
 
@@ -168,7 +199,7 @@ async function datasetBenchmarking(
   sessionId: SessionId,
   secretData: number[],
   delegated = false
-): Promise<number[]> {
+): Promise<BenchmarkingRank[]> {
   return new Promise((resolve) => {
     mpc.connect({
       computationId: sessionId,
@@ -177,7 +208,7 @@ async function datasetBenchmarking(
       party_count: delegated ? 3 : 2,
       Zp,
       onConnect: async (jiff_instance: JIFFClient) => {
-        const res: number[] = [];
+        const res: BenchmarkingRank[] = [];
 
         for (const dimension in secretData) {
           res.push(
@@ -188,6 +219,8 @@ async function datasetBenchmarking(
             )
           );
         }
+
+        console.log("res", res);
 
         jiff_instance.disconnect(true, true);
         resolve(res);

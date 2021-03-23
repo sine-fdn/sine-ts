@@ -404,7 +404,7 @@ class MPCClient {
     const sessionId = sessionRes.id;
     return {
       sessionId,
-      results: datasetBenchmarking(sessionRes.coordinatorUrl, sessionId, secretData, delegated).then(results => results.map(r => r + 1))
+      results: datasetBenchmarking(sessionRes.coordinatorUrl, sessionId, secretData, delegated)
     };
   }
 
@@ -426,16 +426,40 @@ async function functionCallProtocol(jiff_instance, secretInput) {
 async function delegatedProtocol(jiff_instance, secretInput) {
   await jiff_instance.share_array(secretInput, undefined, undefined, [1, 2]);
   const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
-  return await jiff_instance.open(rank);
+  return jiff_instance.open(rank);
+}
+
+function quantile(rank, datasetSize) {
+  console.log("quantile", rank, datasetSize);
+  if (datasetSize == 0) return 1;
+  const q = 1 + Math.floor(rank / datasetSize * 10);
+  return Math.max(1, Math.min(10, q));
+}
+
+async function benchmarkingProtocolDelegated(jiff_instance, secretInput) {
+  await jiff_instance.share_array([secretInput], undefined, undefined, [1, 2]);
+  const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
+  const rankResult = (await jiff_instance.open(rank)) + 1;
+  const datasetSizes = jiff_instance.share(0, undefined, [3], [1, 2]);
+  const datasetSize = await jiff_instance.open(datasetSizes[1]);
+  return {
+    rank: rankResult,
+    quantile: quantile(rankResult, datasetSize)
+  };
 }
 
 async function benchmarkingProtocolDirect(jiff_instance, secretInput) {
   const secrets = await share_dataset_secrets(jiff_instance, [secretInput], 1, 2);
-  return await jiff_instance.open(ranking_const(secrets.referenceSecrets[0], secrets.datasetSecrets));
+  const datasetSize = secrets.datasetSecrets.length + 1;
+  const rank = (await jiff_instance.open(ranking_const(secrets.referenceSecrets[0], secrets.datasetSecrets))) + 1;
+  return {
+    rank,
+    quantile: quantile(rank, datasetSize)
+  };
 }
 
 async function benchmarkingProtocol(jiff_instance, secretInput, delegated) {
-  return await (delegated ? delegatedProtocol(jiff_instance, [secretInput]) : benchmarkingProtocolDirect(jiff_instance, secretInput));
+  return await (delegated ? benchmarkingProtocolDelegated(jiff_instance, secretInput) : benchmarkingProtocolDirect(jiff_instance, secretInput));
 }
 
 async function datasetBenchmarking(coordinatorUrl, sessionId, secretData, delegated = false) {
@@ -453,6 +477,7 @@ async function datasetBenchmarking(coordinatorUrl, sessionId, secretData, delega
           res.push(await benchmarkingProtocol(jiff_instance, secretData[dimension], delegated));
         }
 
+        console.log("res", res);
         jiff_instance.disconnect(true, true);
         resolve(res);
       }
