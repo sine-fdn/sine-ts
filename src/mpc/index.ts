@@ -6,7 +6,7 @@ import { FunctionId, SessionId } from "../types";
 import { Benchmarking } from "./../benchmarking/main";
 import * as mpc from "./static";
 
-export const Zp = 24499973;
+export const Zp = 100000007;
 
 export interface MPCClientOpts {
   client: Benchmarking;

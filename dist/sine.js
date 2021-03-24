@@ -352,7 +352,7 @@ var _static = /*#__PURE__*/Object.freeze({
   ranking_const: ranking_const
 });
 
-const Zp = 24499973;
+const Zp = 100000007;
 class MPCClient {
   constructor({
     client
