@@ -1,4 +1,6 @@
+import Bignumber, { BigNumber } from 'bignumber.js';
 import JIFFClient from 'jiff-mpc/lib/jiff-client.js';
+import bignumExt from 'jiff-mpc/lib/ext/jiff-client-bignumber.js';
 
 const ZP = 24499973;
 
@@ -231,6 +233,7 @@ class SINE {
 
 const DEFAULT_JIFF_OPTIONS = {
   crypto_provider: true,
+  autoConnect: false,
   onError: function (_, error) {
     console.error("ERROR ", error);
   }
@@ -238,14 +241,19 @@ const DEFAULT_JIFF_OPTIONS = {
 function connect({
   computationId,
   hostname,
+  bignum = bignumExt,
   ...opts
 }) {
-  return new JIFFClient(hostname, computationId, { ...DEFAULT_JIFF_OPTIONS,
+  const options = { ...DEFAULT_JIFF_OPTIONS,
     ...opts
-  });
+  };
+  const cl = new JIFFClient(hostname, computationId, options);
+  cl.apply_extension(bignum);
+  cl.connect();
+  return cl;
 }
 async function share_dataset_secrets(jiff_instance, secrets, dataset_node_id, other_node_id) {
-  const dataset = await jiff_instance.share_array(secrets);
+  const dataset = await jiff_instance.share_array(secrets.map(s => new Bignumber(s)));
   const referenceSecrets = dataset[other_node_id];
   const datasetSecrets = dataset[dataset_node_id];
 
@@ -344,7 +352,7 @@ var _static = /*#__PURE__*/Object.freeze({
   ranking_const: ranking_const
 });
 
-const Zp = 100000007;
+const Zp = "32416190071";
 class MPCClient {
   constructor({
     client
@@ -413,7 +421,7 @@ class MPCClient {
 async function functionCallProtocol(jiff_instance, secretInput) {
   const secrets = await share_dataset_secrets(jiff_instance, secretInput, 1, 2);
   const rank = dotproduct(secrets.datasetSecrets, secrets.referenceSecrets);
-  const [result] = await jiff_instance.open_array([rank]);
+  const [result] = await jiff_instance.open_array([rank]).then(ranks => ranks.map(r => r.toNumber()));
   return result;
 }
 /**
@@ -424,9 +432,9 @@ async function functionCallProtocol(jiff_instance, secretInput) {
 
 
 async function delegatedProtocol(jiff_instance, secretInput) {
-  await jiff_instance.share_array(secretInput, undefined, undefined, [1, 2]);
+  await jiff_instance.share_array(secretInput.map(i => new BigNumber(i)), undefined, undefined, [1, 2]);
   const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
-  return jiff_instance.open(rank);
+  return jiff_instance.open(rank).then(b => b.toNumber());
 }
 
 function quantile(rank, datasetSize) {
@@ -437,11 +445,11 @@ function quantile(rank, datasetSize) {
 }
 
 async function benchmarkingProtocolDelegated(jiff_instance, secretInput) {
-  await jiff_instance.share_array([secretInput], undefined, undefined, [1, 2]);
+  await jiff_instance.share_array([new BigNumber(secretInput)], undefined, undefined, [1, 2]);
   const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
-  const rankResult = (await jiff_instance.open(rank)) + 1;
-  const datasetSizes = jiff_instance.share(0, undefined, [3], [1, 2]);
-  const datasetSize = await jiff_instance.open(datasetSizes[1]);
+  const rankResult = (await jiff_instance.open(rank).then(b => b.toNumber())) + 1;
+  const datasetSizes = jiff_instance.share(new BigNumber(0), undefined, [3], [1, 2]);
+  const datasetSize = await jiff_instance.open(datasetSizes[1]).then(b => b.toNumber());
   return {
     rank: rankResult,
     quantile: quantile(rankResult, datasetSize)
@@ -451,7 +459,7 @@ async function benchmarkingProtocolDelegated(jiff_instance, secretInput) {
 async function benchmarkingProtocolDirect(jiff_instance, secretInput) {
   const secrets = await share_dataset_secrets(jiff_instance, [secretInput], 1, 2);
   const datasetSize = secrets.datasetSecrets.length + 1;
-  const rank = (await jiff_instance.open(ranking_const(secrets.referenceSecrets[0], secrets.datasetSecrets))) + 1;
+  const rank = (await jiff_instance.open(ranking_const(secrets.referenceSecrets[0], secrets.datasetSecrets)).then(b => b.toNumber())) + 1;
   return {
     rank,
     quantile: quantile(rank, datasetSize)

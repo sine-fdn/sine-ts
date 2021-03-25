@@ -1,8 +1,9 @@
 interface ConnectProps extends JIFFClientOptions {
     computationId: string;
     hostname: string;
+    bignum?: unknown;
 }
-export declare function connect({ computationId, hostname, ...opts }: ConnectProps): JIFFClient;
+export declare function connect({ computationId, hostname, bignum, ...opts }: ConnectProps): JIFFClient;
 interface ShareSecretsResult {
     datasetSecrets: SecretShare[];
     referenceSecrets: SecretShare[];

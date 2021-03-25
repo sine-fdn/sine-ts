@@ -24,6 +24,10 @@ export default [
       { file: pkg.module, format: "es" },
     ],
     plugins: PLUGINS,
-    external: ["jiff-mpc/lib/jiff-client.js"],
+    external: [
+      "bignumber.js",
+      "jiff-mpc/lib/jiff-client.js",
+      "jiff-mpc/lib/ext/jiff-client-bignumber.js",
+    ],
   },
 ];

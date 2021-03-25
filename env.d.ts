@@ -1,24 +1,26 @@
 declare module "jiff-mpc/lib/jiff-client.js";
+declare module "jiff-mpc/lib/ext/jiff-client-bignumber.js";
 
 declare type JIFFClientOptions = {
-  Zp?: number;
+  Zp?: number | string;
   party_id: number;
   party_count: number;
   crypto_provider?: boolean;
+  autoConnect?: boolean;
   onError?: (jiff_instance: JIFFClient, error: Error) => void;
   onConnect: (cl: JIFFClient) => void;
 };
 
 declare class SecretShare {
-  add(n: number | SecretShare): SecretShare;
-  sadd(n: number | SecretShare): SecretShare;
+  add(n: BigNumber | SecretShare): SecretShare;
+  sadd(n: BigNumber | SecretShare): SecretShare;
   sub(s: SecretShare | number): SecretShare;
   smult(s: SecretShare): SecretShare;
   sdiv(s: SecretShare): SecretShare;
 
-  gt(n: number | SecretShare): SecretShare;
+  gt(n: BigNumber | SecretShare): SecretShare;
   sgt(s: SecretShare): SecretShare;
-  if_else(t: number | SecretShare, f: number | SecretShare): SecretShare;
+  if_else(t: BigNumber | SecretShare, f: number | SecretShare): SecretShare;
   seq(s: SecretShare): SecretShare;
 }
 
@@ -32,14 +34,14 @@ declare class JIFFClient {
   party_count: number;
 
   share(
-    secret: number,
+    secret: BigNumber,
     threshold?: number,
     receivers_list?: number[],
     senders_list?: number[]
   ): { [party_id: string]: SecretShare };
-  open(s: SecretShare, parties?: number[], op_id?: string): Promise<number>;
+  open(s: SecretShare, parties?: number[], op_id?: string): Promise<BigNumber>;
   share_array(
-    secrets: number[],
+    secrets: BigNumber[],
     length?: number,
     threshold?: number,
     receivers_list?: number[],
@@ -56,7 +58,7 @@ declare class JIFFClient {
     Zp?: number,
     op_id?: string
   ): SecretShare;
-  open_array(shares: SecretShare[]): Promise<number[]>;
+  open_array(shares: SecretShare[]): Promise<BigNumber[]>;
 
   disconnect(safe?: boolean, free?: boolean): void;
 

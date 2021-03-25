@@ -1,3 +1,4 @@
+import { BigNumber } from "bignumber.js";
 import {
   DatasetListingApiSuccessResponse,
   NewSession,
@@ -6,7 +7,7 @@ import { FunctionId, SessionId } from "../types";
 import { Benchmarking } from "./../benchmarking/main";
 import * as mpc from "./static";
 
-export const Zp = 100000007;
+export const Zp = "32416190071";
 
 export interface MPCClientOpts {
   client: Benchmarking;
@@ -125,7 +126,9 @@ async function functionCallProtocol(
   );
 
   const rank = mpc.dotproduct(secrets.datasetSecrets, secrets.referenceSecrets);
-  const [result] = await jiff_instance.open_array([rank]);
+  const [result] = await jiff_instance
+    .open_array([rank])
+    .then((ranks: BigNumber[]) => ranks.map((r) => r.toNumber()));
 
   return result;
 }
@@ -139,9 +142,14 @@ async function delegatedProtocol(
   jiff_instance: JIFFClient,
   secretInput: number[]
 ): Promise<number> {
-  await jiff_instance.share_array(secretInput, undefined, undefined, [1, 2]);
+  await jiff_instance.share_array(
+    secretInput.map((i) => new BigNumber(i)),
+    undefined,
+    undefined,
+    [1, 2]
+  );
   const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
-  return jiff_instance.open(rank);
+  return jiff_instance.open(rank).then((b: BigNumber) => b.toNumber());
 }
 
 function quantile(rank: number, datasetSize: number): BenchmarkingQuantile {
@@ -156,11 +164,24 @@ async function benchmarkingProtocolDelegated(
   jiff_instance: JIFFClient,
   secretInput: number
 ): Promise<BenchmarkingRank> {
-  await jiff_instance.share_array([secretInput], undefined, undefined, [1, 2]);
+  await jiff_instance.share_array(
+    [new BigNumber(secretInput)],
+    undefined,
+    undefined,
+    [1, 2]
+  );
   const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
-  const rankResult = (await jiff_instance.open(rank)) + 1;
-  const datasetSizes = jiff_instance.share(0, undefined, [3], [1, 2]);
-  const datasetSize = await jiff_instance.open(datasetSizes[1]);
+  const rankResult =
+    (await jiff_instance.open(rank).then((b: BigNumber) => b.toNumber())) + 1;
+  const datasetSizes = jiff_instance.share(
+    new BigNumber(0),
+    undefined,
+    [3],
+    [1, 2]
+  );
+  const datasetSize = await jiff_instance
+    .open(datasetSizes[1])
+    .then((b: BigNumber) => b.toNumber());
 
   return { rank: rankResult, quantile: quantile(rankResult, datasetSize) };
 }
@@ -178,9 +199,11 @@ async function benchmarkingProtocolDirect(
 
   const datasetSize = secrets.datasetSecrets.length + 1;
   const rank =
-    (await jiff_instance.open(
-      mpc.ranking_const(secrets.referenceSecrets[0], secrets.datasetSecrets)
-    )) + 1;
+    (await jiff_instance
+      .open(
+        mpc.ranking_const(secrets.referenceSecrets[0], secrets.datasetSecrets)
+      )
+      .then((b: BigNumber) => b.toNumber())) + 1;
   return { rank, quantile: quantile(rank, datasetSize) };
 }
 

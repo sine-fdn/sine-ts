@@ -29,6 +29,7 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "bignumber.js": "^9.0.1",
     "jiff-mpc": "github:multiparty/jiff#2fc9231b45a497196c9d636964810e8a2f23d705"
   },
   "devDependencies": {

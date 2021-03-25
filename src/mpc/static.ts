@@ -1,7 +1,10 @@
 import JIFFClient from "jiff-mpc/lib/jiff-client.js";
+import Bignumber from "bignumber.js";
+import bignumExt from "jiff-mpc/lib/ext/jiff-client-bignumber.js";
 
 const DEFAULT_JIFF_OPTIONS: Partial<JIFFClientOptions> = {
   crypto_provider: true,
+  autoConnect: false,
   onError: function (_, error: Error) {
     console.error("ERROR ", error);
   },
@@ -10,17 +13,23 @@ const DEFAULT_JIFF_OPTIONS: Partial<JIFFClientOptions> = {
 interface ConnectProps extends JIFFClientOptions {
   computationId: string;
   hostname: string;
+  bignum?: unknown;
 }
 
 export function connect({
   computationId,
   hostname,
+  bignum = bignumExt,
   ...opts
 }: ConnectProps): JIFFClient {
-  return new JIFFClient(hostname, computationId, {
+  const options = {
     ...DEFAULT_JIFF_OPTIONS,
     ...opts,
-  });
+  };
+  const cl = new JIFFClient(hostname, computationId, options);
+  cl.apply_extension(bignum);
+  cl.connect();
+  return cl;
 }
 
 interface ShareSecretsResult {
@@ -34,7 +43,9 @@ export async function share_dataset_secrets(
   dataset_node_id: number,
   other_node_id: number
 ): Promise<ShareSecretsResult> {
-  const dataset = await jiff_instance.share_array(secrets);
+  const dataset = await jiff_instance.share_array(
+    secrets.map((s) => new Bignumber(s))
+  );
 
   const referenceSecrets = dataset[other_node_id];
   const datasetSecrets = dataset[dataset_node_id];
