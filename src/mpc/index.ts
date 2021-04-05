@@ -7,6 +7,9 @@ import { FunctionId, SessionId } from "../types";
 import { Benchmarking } from "./../benchmarking/main";
 import * as mpc from "./static";
 
+/**
+ * ZP-1 (sic!) is the maximum representable value
+ */
 export const Zp = "2199023255531";
 
 export interface MPCClientOpts {
@@ -32,6 +35,9 @@ export interface FunctionCallResult {
 
 type Dataset = DatasetListingApiSuccessResponse["datasets"][0];
 
+/**
+ * High-level MPC protocol client
+ */
 export class MPCClient {
   private readonly client: Benchmarking;
 
@@ -39,6 +45,13 @@ export class MPCClient {
     this.client = client;
   }
 
+  /**
+   * performs call to a named function
+   * @param functionId ID of the function to be called
+   * @param secretInput secret input to the function call
+   * @param delegated whether the function shall be evaluated server-sided only (delegated === TRUE); iff delegated === FALSE, then the entity calling this function will participate in the function evaluation as well
+   * @returns Result of the function call :)
+   */
   async performFunctionCall(
     functionId: FunctionId,
     secretInput: number[],
@@ -51,7 +64,7 @@ export class MPCClient {
 
     const sessionId = res.sessionId;
 
-    const result: Promise<number> = new Promise((resolve) => {
+    const result: Promise<number> = new Promise((resolve, reject) => {
       mpc.connect({
         computationId: sessionId,
         hostname: res.coordinatorUrl,
@@ -59,12 +72,17 @@ export class MPCClient {
         party_count: delegated ? 3 : 2,
         Zp,
         onConnect: async (jiff_instance: JIFFClient) => {
-          const result = delegated
-            ? await delegatedProtocol(jiff_instance, secretInput)
-            : await functionCallProtocol(jiff_instance, secretInput);
+          try {
+            const result = delegated
+              ? await delegatedProtocol(jiff_instance, secretInput)
+              : await functionCallProtocol(jiff_instance, secretInput);
 
-          jiff_instance.disconnect(true, true);
-          resolve(result);
+            resolve(result);
+          } catch (error) {
+            reject(error);
+          } finally {
+            jiff_instance.disconnect(true, true);
+          }
         },
       });
     });
@@ -75,6 +93,17 @@ export class MPCClient {
     };
   }
 
+  /**
+   * performs benchmarking against a named dataset given private input(s)
+   *
+   * Benchmarking here means that a ranking from lowest to highest. The input for the
+   * ranking comes from the entity calling into this function.
+   *
+   * @param dataset the data set to call into ; typically a SDK result from fetching dataset metadata info
+   * @param secretData the secret input to be compared
+   * @param numShards number of shards to use for performing the benchmarking. If this value is defined, then the "delegated" protocol is used, which means the actual comparisons are carried out only by the backend systems under S-MPC. The parameter also denotes whether "sharding" of the reference data set shall be performed, i.e. whether data comparisons shall be performed in parallel.
+   * @returns a {BenchmarkingResult}; i.e. a session id and a promise of the computation result
+   */
   async performBenchmarking(
     dataset: Dataset,
     secretData: number[],
@@ -118,19 +147,26 @@ async function functionCallProtocol(
   jiff_instance: JIFFClient,
   secretInput: number[]
 ): Promise<number> {
-  const secrets = await mpc.share_dataset_secrets(
-    jiff_instance,
-    secretInput,
-    1,
-    2
-  );
+  try {
+    const secrets = await mpc.share_dataset_secrets(
+      jiff_instance,
+      secretInput,
+      1,
+      2
+    );
 
-  const rank = mpc.dotproduct(secrets.datasetSecrets, secrets.referenceSecrets);
-  const [result] = await jiff_instance
-    .open_array([rank])
-    .then((ranks: BigNumber[]) => ranks.map((r) => r.toNumber()));
+    const rank = mpc.dotproduct(
+      secrets.datasetSecrets,
+      secrets.referenceSecrets
+    );
+    const [result] = await jiff_instance
+      .open_array([rank])
+      .then((ranks: BigNumber[]) => ranks.map((r) => r.toNumber()));
 
-  return result;
+    return result;
+  } catch (error) {
+    return Promise.reject(error);
+  }
 }
 
 /**
@@ -153,7 +189,6 @@ async function delegatedProtocol(
 }
 
 function quantile(rank: number, datasetSize: number): BenchmarkingQuantile {
-  console.log("quantile", rank, datasetSize);
   if (datasetSize == 0) return 1;
 
   const q = 1 + Math.floor((rank / datasetSize) * 10);
@@ -223,7 +258,7 @@ async function datasetBenchmarking(
   secretData: number[],
   delegated = false
 ): Promise<BenchmarkingRank[]> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     mpc.connect({
       computationId: sessionId,
       hostname: coordinatorUrl,
@@ -231,22 +266,25 @@ async function datasetBenchmarking(
       party_count: delegated ? 3 : 2,
       Zp,
       onConnect: async (jiff_instance: JIFFClient) => {
-        const res: BenchmarkingRank[] = [];
+        try {
+          const res: BenchmarkingRank[] = [];
 
-        for (const dimension in secretData) {
-          res.push(
-            await benchmarkingProtocol(
-              jiff_instance,
-              secretData[dimension],
-              delegated
-            )
-          );
+          for (const dimension in secretData) {
+            res.push(
+              await benchmarkingProtocol(
+                jiff_instance,
+                secretData[dimension],
+                delegated
+              )
+            );
+          }
+
+          resolve(res);
+        } catch (error) {
+          reject(error);
+        } finally {
+          jiff_instance.disconnect(true, true);
         }
-
-        console.log("res", res);
-
-        jiff_instance.disconnect(true, true);
-        resolve(res);
       },
     });
   });

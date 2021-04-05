@@ -16,6 +16,12 @@ interface ConnectProps extends JIFFClientOptions {
   bignum?: unknown;
 }
 
+/**
+ * Creates a new JIFF client using the SINE SDK defaults
+ *
+ * @param param0 Connection properties
+ * @returns JIFFClient instance with {param0} props applied
+ */
 export function connect({
   computationId,
   hostname,
@@ -32,11 +38,31 @@ export function connect({
   return cl;
 }
 
-interface ShareSecretsResult {
+/**
+ * result of a {share_dataset_secrets} operation
+ *
+ */
+export interface ShareSecretsResult {
+  /** secret data shared by the "dataset node" */
   datasetSecrets: SecretShare[];
+  /** secret data shared by the 2nd node submitting data to be compared against the dataset */
   referenceSecrets: SecretShare[];
 }
 
+/**
+ * secret data sharing with 2 parties participating
+ *
+ * The "dataset" party (i.e. the one party supplying the majority of the data) is identified by
+ * the node id {dataset_node_id}. The party supplying the to-be-compared data, is identified by {other_node_id}.
+ *
+ * The return value is destructured data for implementation simplicity and understandability.
+ *
+ * @param jiff_instance the JIFF instance to be used for low-level comms
+ * @param secrets the secret data to be secret-shared with other nodes
+ * @param dataset_node_id id of the node supplying the dataset
+ * @param other_node_id id of the node supplying the reference data which is compared against the dataset node's data
+ * @returns a ShareSecretsResult instance
+ */
 export async function share_dataset_secrets(
   jiff_instance: JIFFClient,
   secrets: number[],
@@ -51,8 +77,13 @@ export async function share_dataset_secrets(
   const datasetSecrets = dataset[dataset_node_id];
 
   if (!referenceSecrets || !datasetSecrets) {
-    console.log("dump", referenceSecrets, datasetSecrets, dataset);
-    throw new Error("Protocol invariant(s) failed");
+    return Promise.reject(
+      new Error(
+        `Protocol invariants failed. No dataset or reference secrets found. referenceSecrets: ${
+          referenceSecrets ? "is not null" : "is null"
+        }, datasetSecrets: ${datasetSecrets ? "is not null" : "is null"}`
+      )
+    );
   }
 
   return {
@@ -61,12 +92,19 @@ export async function share_dataset_secrets(
   };
 }
 
+/**
+ * Performs dot product of 2 sectors
+ *
+ * @param lhs left hand vector
+ * @param rhs right hand vector
+ * @returns dot product of `lhs * rhs`
+ */
 export function dotproduct(
   lhs: SecretShare[],
   rhs: SecretShare[]
 ): SecretShare {
   if (lhs.length !== rhs.length) {
-    throw new Error("Protocal invariant failed");
+    throw new Error("Protocal invariant failed: ");
   }
 
   return lhs.reduce<SecretShare | number>(

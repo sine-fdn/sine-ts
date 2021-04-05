@@ -238,6 +238,13 @@ const DEFAULT_JIFF_OPTIONS = {
     console.error("ERROR ", error);
   }
 };
+/**
+ * Creates a new JIFF client using the SINE SDK defaults
+ *
+ * @param param0 Connection properties
+ * @returns JIFFClient instance with {param0} props applied
+ */
+
 function connect({
   computationId,
   hostname,
@@ -252,14 +259,28 @@ function connect({
   cl.connect();
   return cl;
 }
+/**
+ * secret data sharing with 2 parties participating
+ *
+ * The "dataset" party (i.e. the one party supplying the majority of the data) is identified by
+ * the node id {dataset_node_id}. The party supplying the to-be-compared data, is identified by {other_node_id}.
+ *
+ * The return value is destructured data for implementation simplicity and understandability.
+ *
+ * @param jiff_instance the JIFF instance to be used for low-level comms
+ * @param secrets the secret data to be secret-shared with other nodes
+ * @param dataset_node_id id of the node supplying the dataset
+ * @param other_node_id id of the node supplying the reference data which is compared against the dataset node's data
+ * @returns a ShareSecretsResult instance
+ */
+
 async function share_dataset_secrets(jiff_instance, secrets, dataset_node_id, other_node_id) {
   const dataset = await jiff_instance.share_array(secrets.map(s => new Bignumber(s)));
   const referenceSecrets = dataset[other_node_id];
   const datasetSecrets = dataset[dataset_node_id];
 
   if (!referenceSecrets || !datasetSecrets) {
-    console.log("dump", referenceSecrets, datasetSecrets, dataset);
-    throw new Error("Protocol invariant(s) failed");
+    return Promise.reject(new Error(`Protocol invariants failed. No dataset or reference secrets found. referenceSecrets: ${referenceSecrets ? "is not null" : "is null"}, datasetSecrets: ${datasetSecrets ? "is not null" : "is null"}`));
   }
 
   return {
@@ -267,9 +288,17 @@ async function share_dataset_secrets(jiff_instance, secrets, dataset_node_id, ot
     referenceSecrets
   };
 }
+/**
+ * Performs dot product of 2 sectors
+ *
+ * @param lhs left hand vector
+ * @param rhs right hand vector
+ * @returns dot product of `lhs * rhs`
+ */
+
 function dotproduct(lhs, rhs) {
   if (lhs.length !== rhs.length) {
-    throw new Error("Protocal invariant failed");
+    throw new Error("Protocal invariant failed: ");
   }
 
   return lhs.reduce((prev, scalar, idx) => scalar.smult(rhs[idx]).add(prev), 0);
@@ -352,13 +381,29 @@ var _static = /*#__PURE__*/Object.freeze({
   ranking_const: ranking_const
 });
 
+/**
+ * ZP-1 (sic!) is the maximum representable value
+ */
+
 const Zp = "2199023255531";
+/**
+ * High-level MPC protocol client
+ */
+
 class MPCClient {
   constructor({
     client
   }) {
     this.client = client;
   }
+  /**
+   * performs call to a named function
+   * @param functionId ID of the function to be called
+   * @param secretInput secret input to the function call
+   * @param delegated whether the function shall be evaluated server-sided only (delegated === TRUE); iff delegated === FALSE, then the entity calling this function will participate in the function evaluation as well
+   * @returns Result of the function call :)
+   */
+
 
   async performFunctionCall(functionId, secretInput, delegated) {
     const res = await this.client.newFunctionCall(functionId, delegated);
@@ -368,7 +413,7 @@ class MPCClient {
     }
 
     const sessionId = res.sessionId;
-    const result = new Promise(resolve => {
+    const result = new Promise((resolve, reject) => {
       connect({
         computationId: sessionId,
         hostname: res.coordinatorUrl,
@@ -376,9 +421,14 @@ class MPCClient {
         party_count: delegated ? 3 : 2,
         Zp,
         onConnect: async jiff_instance => {
-          const result = delegated ? await delegatedProtocol(jiff_instance, secretInput) : await functionCallProtocol(jiff_instance, secretInput);
-          jiff_instance.disconnect(true, true);
-          resolve(result);
+          try {
+            const result = delegated ? await delegatedProtocol(jiff_instance, secretInput) : await functionCallProtocol(jiff_instance, secretInput);
+            resolve(result);
+          } catch (error) {
+            reject(error);
+          } finally {
+            jiff_instance.disconnect(true, true);
+          }
         }
       });
     });
@@ -387,6 +437,18 @@ class MPCClient {
       result
     };
   }
+  /**
+   * performs benchmarking against a named dataset given private input(s)
+   *
+   * Benchmarking here means that a ranking from lowest to highest. The input for the
+   * ranking comes from the entity calling into this function.
+   *
+   * @param dataset the data set to call into ; typically a SDK result from fetching dataset metadata info
+   * @param secretData the secret input to be compared
+   * @param numShards number of shards to use for performing the benchmarking. If this value is defined, then the "delegated" protocol is used, which means the actual comparisons are carried out only by the backend systems under S-MPC. The parameter also denotes whether "sharding" of the reference data set shall be performed, i.e. whether data comparisons shall be performed in parallel.
+   * @returns a {BenchmarkingResult}; i.e. a session id and a promise of the computation result
+   */
+
 
   async performBenchmarking(dataset, secretData, numShards) {
     const delegated = numShards !== undefined;
@@ -419,10 +481,14 @@ class MPCClient {
 }
 
 async function functionCallProtocol(jiff_instance, secretInput) {
-  const secrets = await share_dataset_secrets(jiff_instance, secretInput, 1, 2);
-  const rank = dotproduct(secrets.datasetSecrets, secrets.referenceSecrets);
-  const [result] = await jiff_instance.open_array([rank]).then(ranks => ranks.map(r => r.toNumber()));
-  return result;
+  try {
+    const secrets = await share_dataset_secrets(jiff_instance, secretInput, 1, 2);
+    const rank = dotproduct(secrets.datasetSecrets, secrets.referenceSecrets);
+    const [result] = await jiff_instance.open_array([rank]).then(ranks => ranks.map(r => r.toNumber()));
+    return result;
+  } catch (error) {
+    return Promise.reject(error);
+  }
 }
 /**
  * performs the MPC protocol against a single dimension
@@ -438,7 +504,6 @@ async function delegatedProtocol(jiff_instance, secretInput) {
 }
 
 function quantile(rank, datasetSize) {
-  console.log("quantile", rank, datasetSize);
   if (datasetSize == 0) return 1;
   const q = 1 + Math.floor(rank / datasetSize * 10);
   return Math.max(1, Math.min(10, q));
@@ -471,7 +536,7 @@ async function benchmarkingProtocol(jiff_instance, secretInput, delegated) {
 }
 
 async function datasetBenchmarking(coordinatorUrl, sessionId, secretData, delegated = false) {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     connect({
       computationId: sessionId,
       hostname: coordinatorUrl,
@@ -479,15 +544,19 @@ async function datasetBenchmarking(coordinatorUrl, sessionId, secretData, delega
       party_count: delegated ? 3 : 2,
       Zp,
       onConnect: async jiff_instance => {
-        const res = [];
+        try {
+          const res = [];
 
-        for (const dimension in secretData) {
-          res.push(await benchmarkingProtocol(jiff_instance, secretData[dimension], delegated));
+          for (const dimension in secretData) {
+            res.push(await benchmarkingProtocol(jiff_instance, secretData[dimension], delegated));
+          }
+
+          resolve(res);
+        } catch (error) {
+          reject(error);
+        } finally {
+          jiff_instance.disconnect(true, true);
         }
-
-        console.log("res", res);
-        jiff_instance.disconnect(true, true);
-        resolve(res);
       }
     });
   });
