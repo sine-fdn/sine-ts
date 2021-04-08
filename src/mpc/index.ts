@@ -6,34 +6,25 @@ import {
 import { FunctionId, SessionId } from "../types";
 import { Benchmarking } from "./../benchmarking/main";
 import * as mpc from "./static";
+import { quantile } from "./stats";
+import {
+  BenchmarkingRank,
+  BenchmarkingResult,
+  FunctionCallResult,
+} from "./types";
+
+export * from "./types";
 
 /**
  * ZP-1 (sic!) is the maximum representable value
  */
 export const Zp = "2199023255531";
 
+type Dataset = DatasetListingApiSuccessResponse["datasets"][0];
+
 export interface MPCClientOpts {
   client: Benchmarking;
 }
-
-export type BenchmarkingQuantile = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
-/** result of a benchmark computation */
-export interface BenchmarkingRank {
-  rank: number;
-  quantile: BenchmarkingQuantile;
-}
-
-export interface BenchmarkingResult {
-  results: Promise<BenchmarkingRank[]>;
-  sessionId: string;
-}
-
-export interface FunctionCallResult {
-  sessionId: string;
-  result: Promise<number>;
-}
-
-type Dataset = DatasetListingApiSuccessResponse["datasets"][0];
 
 /**
  * High-level MPC protocol client
@@ -186,13 +177,6 @@ async function delegatedProtocol(
   );
   const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
   return jiff_instance.open(rank).then((b: BigNumber) => b.toNumber());
-}
-
-function quantile(rank: number, datasetSize: number): BenchmarkingQuantile {
-  if (datasetSize == 0) return 1;
-
-  const q = 1 + Math.floor((rank / datasetSize) * 10);
-  return Math.max(1, Math.min(10, q)) as BenchmarkingQuantile;
 }
 
 async function benchmarkingProtocolDelegated(
