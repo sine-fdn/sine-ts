@@ -391,6 +391,13 @@ var _static = /*#__PURE__*/Object.freeze({
   ranking_const: ranking_const
 });
 
+function quantile(rank, datasetSize) {
+  if (datasetSize == 0) return 1;
+  const r = Math.max(1, rank > datasetSize ? datasetSize : rank);
+  const q = Math.ceil(r / datasetSize * Math.min(datasetSize, 10));
+  return q;
+}
+
 /**
  * ZP-1 (sic!) is the maximum representable value
  */
@@ -511,12 +518,6 @@ async function delegatedProtocol(jiff_instance, secretInput) {
   await jiff_instance.share_array(secretInput.map(i => new Bignumber.BigNumber(i)), undefined, undefined, [1, 2]);
   const rank = jiff_instance.reshare(undefined, undefined, [1, 2, 3], [1, 2]);
   return jiff_instance.open(rank).then(b => b.toNumber());
-}
-
-function quantile(rank, datasetSize) {
-  if (datasetSize == 0) return 1;
-  const q = 1 + Math.floor(rank / datasetSize * 10);
-  return Math.max(1, Math.min(10, q));
 }
 
 async function benchmarkingProtocolDelegated(jiff_instance, secretInput) {

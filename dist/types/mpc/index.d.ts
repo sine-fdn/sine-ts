@@ -1,28 +1,16 @@
 import { DatasetListingApiSuccessResponse } from "../benchmarking/types";
 import { FunctionId } from "../types";
 import { Benchmarking } from "./../benchmarking/main";
+import { BenchmarkingResult, FunctionCallResult } from "./types";
+export * from "./types";
 /**
  * ZP-1 (sic!) is the maximum representable value
  */
 export declare const Zp = "2199023255531";
+declare type Dataset = DatasetListingApiSuccessResponse["datasets"][0];
 export interface MPCClientOpts {
     client: Benchmarking;
 }
-export declare type BenchmarkingQuantile = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
-/** result of a benchmark computation */
-export interface BenchmarkingRank {
-    rank: number;
-    quantile: BenchmarkingQuantile;
-}
-export interface BenchmarkingResult {
-    results: Promise<BenchmarkingRank[]>;
-    sessionId: string;
-}
-export interface FunctionCallResult {
-    sessionId: string;
-    result: Promise<number>;
-}
-declare type Dataset = DatasetListingApiSuccessResponse["datasets"][0];
 /**
  * High-level MPC protocol client
  */
@@ -50,4 +38,3 @@ export declare class MPCClient {
      */
     performBenchmarking(dataset: Dataset, secretData: number[], numShards?: number): Promise<BenchmarkingResult>;
 }
-export {};
